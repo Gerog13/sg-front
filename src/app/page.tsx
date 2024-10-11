@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import React, { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
 import {
   Button,
+  CircularProgress,
   Container,
   Typography,
   Box,
@@ -22,7 +23,10 @@ import {
   Visibility,
   VisibilityOff,
 } from "@mui/icons-material";
+import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -40,11 +44,21 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
 export default function Home() {
   const { isAuthenticated, login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [showPassword, setShowPassword] = React.useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -52,17 +66,20 @@ export default function Home() {
     }
   }, [isAuthenticated, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: { email: string; password: string }) => {
+    setLoading(true);
     try {
-      await login(email, password);
-    } catch (error) {
-      console.error("Login failed:", error);
+      await login(data.email, data.password);
+      setLoading(false);
+    } catch {
+      setLoading(false);
+      toast.error("Invalid email or password. Please try again.");
     }
   };
 
   return (
     <Container component="main" maxWidth="xs">
+      <ToastContainer />
       <Box
         sx={{
           minHeight: "100vh",
@@ -87,59 +104,87 @@ export default function Home() {
           >
             Sign in to access your projects and tasks
           </Typography>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            <StyledTextField
-              fullWidth
-              id="email"
-              label="Email Address"
+          <Box
+            component="form"
+            onSubmit={handleSubmit(onSubmit)}
+            sx={{ mt: 1 }}
+          >
+            <Controller
               name="email"
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <AccountCircle />
-                  </InputAdornment>
-                ),
+              control={control}
+              rules={{
+                required: "Email is required",
+                pattern: /^[^@]+@[^@]+\.[^@]+$/,
               }}
+              render={({ field }) => (
+                <StyledTextField
+                  fullWidth
+                  label="Email Address"
+                  autoComplete="email"
+                  autoFocus
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <AccountCircle />
+                      </InputAdornment>
+                    ),
+                  }}
+                  error={!!errors.email}
+                  helperText={errors.email ? "Please enter a valid email" : ""}
+                  {...field}
+                />
+              )}
             />
-            <StyledTextField
-              fullWidth
+
+            <Controller
               name="password"
-              label="Password"
-              type={showPassword ? "text" : "password"}
-              id="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
+              control={control}
+              rules={{ required: "Password is required" }}
+              render={({ field }) => (
+                <StyledTextField
+                  fullWidth
+                  label="Password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  error={!!errors.password}
+                  helperText={errors.password ? "Password is required" : ""}
+                  {...field}
+                />
+              )}
             />
-            <Button type="submit" fullWidth variant="contained" sx={{ mt: 2 }}>
-              Sign In
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 2 }}
+              disabled={loading}
+              startIcon={loading ? <CircularProgress size={20} /> : null}
+            >
+              {loading ? "Signing In..." : "Sign In"}
             </Button>
+
             <Button
               component={Link}
               href={`/auth/register`}
-              type="submit"
               fullWidth
               variant="text"
               sx={{ mt: 2 }}

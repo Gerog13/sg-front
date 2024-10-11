@@ -21,7 +21,6 @@ const ProjectsPage: React.FC = () => {
         setProjects(projectsData);
       } catch (error) {
         console.error("Error fetching projects:", error);
-        // Handle error (show message to user)
       }
     };
 
