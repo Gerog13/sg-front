@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from "react";
 import { User } from "@/types/auth";
 import { getToken, setToken, removeToken, decodeToken } from "@/utils/jwt";
 import { useRouter } from "next/navigation";
@@ -33,20 +39,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
+  const logout = useCallback(async () => {
+    removeToken();
+    setUser(null);
+    router.push("/");
+  }, [router]);
+
   useEffect(() => {
     const token = getToken();
 
     if (token) {
-      const { id, username, role } = decodeToken(token) || {};
-      setUser({
-        id: id ?? "",
-        username: username ?? "",
-        role: (role as "admin" | "user") ?? "user",
-      });
+      const { exp } = decodeToken(token) || {};
+      const isExpired = exp ? Date.now() >= exp * 1000 : true;
+
+      if (isExpired) {
+        logout();
+      } else {
+        const { id, username, role } = decodeToken(token) || {};
+        setUser({
+          id: id ?? "",
+          username: username ?? "",
+          role: (role as "admin" | "user") ?? "user",
+        });
+      }
     } else {
       router.push("/");
     }
-  }, [router]);
+  }, [router, logout]);
 
   const login = async (email: string, password: string) => {
     const { access_token } = await apiLogin(email, password);
@@ -77,12 +96,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       console.error("Registration failed:", error);
       throw error;
     }
-  };
-
-  const logout = async () => {
-    removeToken();
-    setUser(null);
-    router.push("/");
   };
 
   return (
